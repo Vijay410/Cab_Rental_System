@@ -1,89 +1,84 @@
+from flask import Flask
 import mysql.connector
 
-class DatabaseManager:
-    def __init__(self, host, user, password, database):
-        self.host = host
-        self.user = user
-        self.password = password
-        self.database = database
-        self.connection = None
+app = Flask(__name__)
 
-    def connect(self):
-        self.connection = mysql.connector.connect(
-            host=self.host,
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
+# MySQL Configuration
+mysql_config = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': 'admin',
+    'database': 'uberbooking'
+}
+
+class Database:
+    def __init__(self):
+        self.connection = mysql.connector.connect(**mysql_config)
         self.cursor = self.connection.cursor()
 
+    def create_table(self, table_name, fields):
+        # Create table query
+        query = f"CREATE TABLE IF NOT EXISTS {table_name} ({fields})"
+        # Execute query
+        self.cursor.execute(query)
+
     def close(self):
+        # Commit changes and close cursor/connection
+        self.connection.commit()
         self.cursor.close()
         self.connection.close()
 
-    def create_users_table(self):
-        create_table_sql = """
-            CREATE TABLE IF NOT EXISTS users (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(50) NOT NULL,
-                email VARCHAR(100) NOT NULL,
-                password VARCHAR(100) NOT NULL
-            )
-        """
-        self.cursor.execute(create_table_sql)
+# Define table fields
+cabs_fields = """
+    cab_id VARCHAR(36) PRIMARY KEY,
+    driver_id VARCHAR(36),
+    type ENUM('sedan', 'SUV'),
+    registration_number VARCHAR(255),
+    ratings FLOAT,
+    created_at TIMESTAMP
+"""
 
-    def create_vehicles_table(self):
-        create_table_sql = """
-            CREATE TABLE IF NOT EXISTS vehicles (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                vehicle_number VARCHAR(20),
-                model VARCHAR(50),
-                year INT
-            )
-        """
-        self.cursor.execute(create_table_sql)
+customers_fields = """
+    customer_id VARCHAR(36) PRIMARY KEY,
+    email VARCHAR(255),
+    created_at TIMESTAMP
+"""
 
-    def create_drivers_table(self):
-        create_table_sql = """
-            CREATE TABLE IF NOT EXISTS drivers (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT,
-                driver_license_number VARCHAR(20),
-                vehicle_id INT,
-                FOREIGN KEY (user_id) REFERENCES users(id),
-                FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
-            )
-        """
-        self.cursor.execute(create_table_sql)
+drivers_fields = """
+    driver_id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255),
+    email VARCHAR(255),
+    dob DATE,
+    created_at TIMESTAMP
+"""
 
-    def create_rides_table(self):
-        create_table_sql = """
-            CREATE TABLE IF NOT EXISTS rides (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT,
-                driver_id INT,
-                vehicle_id INT,
-                pickup_location VARCHAR(100),
-                dropoff_location VARCHAR(100),
-                ride_status VARCHAR(20),
-                ride_started_at DATETIME,
-                ride_completed_at DATETIME,
-                FOREIGN KEY (user_id) REFERENCES users(id),
-                FOREIGN KEY (driver_id) REFERENCES drivers(id),
-                FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
-            )
-        """
-        self.cursor.execute(create_table_sql)
+trips_fields = """
+    trip_id VARCHAR(36) PRIMARY KEY,
+    cab_id VARCHAR(36),
+    customer_id VARCHAR(36),
+    driver_id VARCHAR(36),
+    created_at TIMESTAMP,
+    status ENUM('created', 'ongoing', 'completed'),
+    source POINT,
+    destination POINT
+"""
 
-    def commit_changes(self):
-        self.connection.commit()
+payments_fields = """
+    payment_id VARCHAR(36) PRIMARY KEY,
+    trip_id VARCHAR(36),
+    method ENUM('credit_card', 'cash'),
+    amount FLOAT,
+    created_at TIMESTAMP
+"""
 
-if __name__ == "__main__":
-    db_manager = DatabaseManager("localhost", "root", "admin", "cabrental")
-    db_manager.connect()
-    db_manager.create_users_table()
-    db_manager.create_vehicles_table()
-    db_manager.create_drivers_table()
-    db_manager.create_rides_table()
-    db_manager.commit_changes()
-    db_manager.close()
+# Create tables using Database class
+db = Database()
+db.create_table('cabs', cabs_fields)
+db.create_table('customers', customers_fields)
+db.create_table('drivers', drivers_fields)
+db.create_table('trips', trips_fields)
+db.create_table('payments', payments_fields)
+
+# Close database connection
+db.close()
+
